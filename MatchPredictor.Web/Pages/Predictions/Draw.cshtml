@@ -1,0 +1,58 @@
+@page
+@model MatchPredictor.Web.Pages.Predictions.Draw
+
+@{
+    ViewData["Title"] = "Draw";
+    var today = DateTime.UtcNow.ToString("dd MMM yyyy");
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>⚽ Draw</title>
+</head>
+<body>
+<div>
+    <section class="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 py-10 px-4 text-gray-800 relative">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">
+                ⚽ Draw – @today
+            </h1>
+
+            <div class="bg-emerald-600 text-white font-semibold px-6 py-3 rounded-md shadow-md mb-6 text-center">
+                Predictions for today!
+            </div>
+
+            @if (Model.Matches.Any())
+            {
+                <div class="space-y-4">
+                    @foreach (var match in Model.Matches)
+                    {
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition">
+                            <div class="text-sm text-gray-500 font-semibold uppercase mb-1">
+                                @match.League – @match.Time
+                            </div>
+                            <div class="text-xl font-medium text-gray-800">
+                                @match.HomeTeam
+                                <span class="text-sm text-gray-500 font-normal">vs</span>
+                                @match.AwayTeam
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-gray-600 italic text-center mt-6">No predictions available for today.</p>
+            }
+        </div>
+
+        <!-- Scroll to top arrow -->
+        <button onclick="scrollToTop()" class="fixed bottom-5 right-5 bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-full shadow-lg transition-opacity duration-300 opacity-100" id="scrollTopBtn">
+            ⬆️
+        </button>
+    </section>
+</div>
+</body>
+</html>
