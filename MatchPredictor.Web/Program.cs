@@ -46,20 +46,20 @@ builder.Services.AddHangfire(config =>
 
 builder.Services.AddHangfireServer(); 
 
-var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
-
-builder.WebHost.ConfigureKestrel(serverOptions =>
-{
-    serverOptions.ListenAnyIP(int.Parse(port));
-});
+// var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+//
+// builder.WebHost.ConfigureKestrel(serverOptions =>
+// {
+//     serverOptions.ListenAnyIP(int.Parse(port));
+// });
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.EnsureCreated(); // or use db.Database.Migrate() if using EF migrations
-}
+// using (var scope = app.Services.CreateScope())
+// {
+//     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//     db.Database.EnsureCreated(); // or use db.Database.Migrate() if using EF migrations
+// }
 
 app.UseHangfireDashboard();
 
