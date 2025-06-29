@@ -16,32 +16,21 @@ builder.Services.AddRazorPages();
 
 var env = builder.Environment;
 
-// var dbPath = env.IsDevelopment()
-//     ? Path.Combine(AppContext.BaseDirectory, "data", "matchpredictor.db")
-//     : Path.Combine(AppContext.BaseDirectory, "data", "app.db");
-
-// var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-// var dbPath = Path.Combine(AppContext.BaseDirectory, connectionString.Replace("Data Source=", ""));
-//
-// builder.Services.AddDbContext<ApplicationDbContext>(options =>
-//     options.UseSqlite($"Data Source={dbPath}"));
+var dbPath = env.IsDevelopment() ? 
+    Path.Combine(AppContext.BaseDirectory, "data", "app.db") : 
+    Path.Combine(Path.GetTempPath(), "app.db");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite($"Data Source={dbPath}"));
+
+// builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IMatchDataRepository, MatchDataRepository>();
 builder.Services.AddScoped<IDataAnalyzerService, DataAnalyzerService>();
 builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
 builder.Services.AddScoped<AnalyzerService>();
-
-// ✅ Manually create and open SQLite connection
-// var hangfireDbPath = Path.Combine(AppContext.BaseDirectory, "data", "hangfire.db");
-// var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
-// sqliteConnection.Open();
-
-// var sqliteConnection = new SqliteConnection("Data Source=data/hangfire.db");
-// sqliteConnection.Open();
 
 var hangfireDbPath = Path.Combine(Path.GetTempPath(), "hangfire.db");
 var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
@@ -58,6 +47,12 @@ builder.Services.AddHangfire(config =>
 builder.Services.AddHangfireServer(); 
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.EnsureCreated(); // or use db.Database.Migrate() if using EF migrations
+}
 
 app.UseHangfireDashboard();
 
