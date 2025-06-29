@@ -46,6 +46,13 @@ builder.Services.AddHangfire(config =>
 
 builder.Services.AddHangfireServer(); 
 
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.ListenAnyIP(int.Parse(port));
+});
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
