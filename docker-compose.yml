@@ -1,8 +1,13 @@
 version: '3.9'
+
 services:
   matchpredictor:
-    build: .
+    build:
+      context: .
     ports:
-      - "8080:80"
+      - "8080:10000"
     volumes:
-      - ./data:/app/data
+      - ./MatchPredictor.Web/data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - PORT=10000

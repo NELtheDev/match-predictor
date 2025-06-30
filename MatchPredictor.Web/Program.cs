@@ -16,9 +16,18 @@ builder.Services.AddRazorPages();
 
 var env = builder.Environment;
 
-var dbPath = env.IsDevelopment() ? 
-    Path.Combine(AppContext.BaseDirectory, "data", "app.db") : 
-    Path.Combine(Path.GetTempPath(), "app.db");
+var dbFileName = "app.db";
+var dbFolder = env.IsDevelopment() ? 
+    Path.Combine(AppContext.BaseDirectory, "data") : 
+    "/app/data";
+
+var dbPath = Path.Combine(dbFolder, dbFileName);
+
+// Create folder if missing (in local dev mode)
+if (env.IsDevelopment() && !Directory.Exists(dbFolder))
+{
+    Directory.CreateDirectory(dbFolder);
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
@@ -32,9 +41,14 @@ builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
 builder.Services.AddScoped<AnalyzerService>();
 
-var hangfireDbPath = Path.Combine(Path.GetTempPath(), "hangfire.db");
+// var hangfireDbPath = Path.Combine(Path.GetTempPath(), "hangfire.db");
+// var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
+// sqliteConnection.Open();
+
+var hangfireDbPath = Path.Combine(dbFolder, "hangfire.db");
 var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
 sqliteConnection.Open();
+
 
 // ✅ Register Hangfire core services
 builder.Services.AddHangfire(config =>
