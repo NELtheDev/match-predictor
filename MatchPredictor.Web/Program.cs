@@ -16,15 +16,15 @@ builder.Services.AddRazorPages();
 
 var env = builder.Environment;
 
-var dbPath = env.IsDevelopment() ? 
-    Path.Combine(AppContext.BaseDirectory, "data", "app.db") : 
-    Path.Combine(Path.GetTempPath(), "app.db");
+// var dbPath = env.IsDevelopment() ? 
+//     Path.Combine(AppContext.BaseDirectory, "data", "app.db") : 
+//     Path.Combine(Path.GetTempPath(), "app.db");
+//
+// builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//     options.UseSqlite($"Data Source={dbPath}"));
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
-
-// builder.Services.AddDbContext<ApplicationDbContext>(options =>
-//     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IMatchDataRepository, MatchDataRepository>();
 builder.Services.AddScoped<IDataAnalyzerService, DataAnalyzerService>();
@@ -68,7 +68,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
     RecurringJob.AddOrUpdate<AnalyzerService>(
         "daily-prediction-job",
         service => service.RunScraperAndAnalyzerAsync(),
-        "5 0,12 * * *" // At 12:05 AM and 12:05 PM every day
+        "* * * * *" // At 12:05 AM and 12:05 PM every day   5 0,12 * * *
     );
 });
 

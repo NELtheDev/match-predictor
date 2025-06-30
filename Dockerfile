@@ -24,6 +24,7 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY MatchPredictor.Web/data ./data
+RUN chmod -R 777 ./data
 
 # .db files will be mounted at runtime instead of baked into image
 
