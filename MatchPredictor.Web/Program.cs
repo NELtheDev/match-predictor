@@ -93,4 +93,11 @@ app.UseRouting();
 app.UseHangfireDashboard("/hangfire");
 app.UseAuthorization();
 app.MapRazorPages();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.Migrate(); // This applies any pending migrations automatically
+}
+
 app.Run();
