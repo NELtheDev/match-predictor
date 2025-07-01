@@ -1,4 +1,5 @@
 using Hangfire;
+using Hangfire.PostgreSql;
 using Hangfire.SQLite;
 using MatchPredictor.Application.Services;
 using MatchPredictor.Domain.Interfaces;
@@ -27,8 +28,13 @@ if (!Directory.Exists(dbFolder))
 var dbPath = Path.Combine(dbFolder, "app.db");
 var hangfireDbPath = Path.Combine(dbFolder, "hangfire.db");
 
+// builder.Services.AddDbContext<ApplicationDbContext>(options =>
+//     options.UseSqlite($"Data Source={dbPath}"));
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite($"Data Source={dbPath}"));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddScoped<IMatchDataRepository, MatchDataRepository>();
 builder.Services.AddScoped<IDataAnalyzerService, DataAnalyzerService>();
@@ -36,14 +42,21 @@ builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
 builder.Services.AddScoped<AnalyzerService>();
 
-var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
-sqliteConnection.Open();
+// var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
+// sqliteConnection.Open();
+//
+// builder.Services.AddHangfire(config =>
+// {
+//     config.UseSimpleAssemblyNameTypeSerializer()
+//         .UseRecommendedSerializerSettings()
+//         .UseStorage(new SQLiteStorage(sqliteConnection));
+// });
 
 builder.Services.AddHangfire(config =>
 {
     config.UseSimpleAssemblyNameTypeSerializer()
-        .UseRecommendedSerializerSettings()
-        .UseStorage(new SQLiteStorage(sqliteConnection));
+          .UseRecommendedSerializerSettings()
+          .UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
 builder.Services.AddHangfireServer();
