@@ -26,4 +26,8 @@
       <ProjectReference Include="..\MatchPredictor.Domain\MatchPredictor.Domain.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Persistence\Migrations\" />
+    </ItemGroup>
+
 </Project>

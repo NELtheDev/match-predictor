@@ -9,11 +9,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace MatchPredictor.Infrastructure.Persistence.Migrations
+namespace MatchPredictor.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250701095109_AddDataProtectionKeysTableAppContext")]
-    partial class AddDataProtectionKeysTableAppContext
+    [Migration("20250701103457_AddDataProtectionKeysTable")]
+    partial class AddDataProtectionKeysTable
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
