@@ -1,14 +1,14 @@
 using Hangfire;
 using Hangfire.PostgreSql;
-using Hangfire.SQLite;
 using MatchPredictor.Application.Services;
 using MatchPredictor.Domain.Interfaces;
 using MatchPredictor.Infrastructure;
 using MatchPredictor.Infrastructure.Persistence;
 using MatchPredictor.Infrastructure.Repositories;
 using MatchPredictor.Infrastructure.Services;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,15 +42,8 @@ builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
 builder.Services.AddScoped<AnalyzerService>();
 
-// var sqliteConnection = new SqliteConnection($"Data Source={hangfireDbPath}");
-// sqliteConnection.Open();
-//
-// builder.Services.AddHangfire(config =>
-// {
-//     config.UseSimpleAssemblyNameTypeSerializer()
-//         .UseRecommendedSerializerSettings()
-//         .UseStorage(new SQLiteStorage(sqliteConnection));
-// });
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<ApplicationDbContext>();
 
 builder.Services.AddHangfire(config =>
 {
