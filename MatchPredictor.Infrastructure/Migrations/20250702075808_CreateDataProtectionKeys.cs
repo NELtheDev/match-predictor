@@ -5,7 +5,7 @@
 namespace MatchPredictor.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class AddDataProtectionKeysTable : Migration
+    public partial class CreateDataProtectionKeys : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

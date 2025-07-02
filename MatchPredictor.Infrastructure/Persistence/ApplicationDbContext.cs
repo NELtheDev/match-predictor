@@ -19,6 +19,12 @@ public class ApplicationDbContext : DbContext, IDataProtectionKeyContext
         base.OnModelCreating(modelBuilder);
 
         // Optional: Configure DataProtectionKeys table name explicitly
-        modelBuilder.Entity<DataProtectionKey>().ToTable("DataProtectionKeys");
+        modelBuilder.Entity<DataProtectionKey>(entity =>
+        {
+            entity.ToTable("DataProtectionKeys");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FriendlyName).HasColumnType("TEXT");
+            entity.Property(e => e.Xml).HasColumnType("TEXT");
+        });
     }
 }
