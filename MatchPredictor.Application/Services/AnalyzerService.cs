@@ -2,7 +2,7 @@ using MatchPredictor.Domain.Interfaces;
 using MatchPredictor.Domain.Models;
 using MatchPredictor.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace MatchPredictor.Application.Services;
 
@@ -12,23 +12,24 @@ public class AnalyzerService
     private readonly IWebScraperService _webScraperService;
     private readonly ApplicationDbContext _dbContext;
     private readonly IExtractFromExcel _excelExtract;
-    private readonly IMemoryCache _cache;
+    private readonly ILogger<AnalyzerService> _logger;
     
 public AnalyzerService(
         IDataAnalyzerService dataAnalyzerService,
         IWebScraperService webScraperService,
         ApplicationDbContext dbContext,
         IExtractFromExcel excelExtract,
-        IMemoryCache cache)
+        ILogger<AnalyzerService> logger)
     {
         _dataAnalyzerService = dataAnalyzerService;
         _webScraperService = webScraperService;
         _dbContext = dbContext;
         _excelExtract = excelExtract;
-        _cache = cache;
+        _logger = logger;
     }
     public async Task RunScraperAndAnalyzerAsync()
     {
+        _logger.LogInformation("Starting scraping and analysis process...");
         var retries = 0;
 
         while (retries < 2)
@@ -36,7 +37,10 @@ public AnalyzerService(
             try
             {
                 await _webScraperService.ScrapeMatchDataAsync();
+                _logger.LogInformation("Web scraping completed successfully.");
+                
                 var scraped = _excelExtract.ExtractMatchDatasetFromFile().ToList();
+                _logger.LogInformation($"Extracted {scraped.Count} matches from Excel file.");
 
                 var today = DateTime.UtcNow.Date.ToString("dd-MM-yyyy");
                 var existing = await _dbContext.Predictions.Where(p => p.Date == today).ToListAsync();
@@ -47,6 +51,7 @@ public AnalyzerService(
                 await SavePredictions("Draw", _dataAnalyzerService.Draw(scraped));
                 await SavePredictions("Over2.5Goals", _dataAnalyzerService.OverTwoGoals(scraped));
                 await SavePredictions("StraightWin", _dataAnalyzerService.StraightWin(scraped));
+                _logger.LogInformation("Predictions saved successfully.");
 
                 await _dbContext.ScrapingLogs.AddAsync(new ScrapingLog
                 {
@@ -55,6 +60,7 @@ public AnalyzerService(
                     Message = "Scraping and prediction analysis completed successfully."
                 });
                 await _dbContext.SaveChangesAsync();
+                _logger.LogInformation("Scraping log saved successfully.");
             }
             catch (Exception ex)
             {
@@ -70,8 +76,11 @@ public AnalyzerService(
                     log.Message += " - Max retries reached.";
                     log.Status = "Error";
                 }
+                _logger.LogError(ex, "An error occurred during scraping and analysis.");
+                
                 await _dbContext.ScrapingLogs.AddAsync(log);
                 await _dbContext.SaveChangesAsync();
+                _logger.LogInformation("Scraping log saved with error status.");
             }  
         }
     }
