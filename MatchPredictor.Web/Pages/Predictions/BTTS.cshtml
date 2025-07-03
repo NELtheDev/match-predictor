@@ -14,22 +14,19 @@
 </head>
 <body>
 <div>
-    <section class="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 py-10 px-4 text-gray-800 relative">
+    <section class="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 py-10 px-4 sm:px-6 md:px-8 text-gray-800">
         <div class="max-w-3xl mx-auto">
-            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">
-                ⚽ BTTS – @today
-            </h1>
 
-            <div class="bg-emerald-600 text-white font-semibold px-6 py-3 rounded-md shadow-md mb-6 text-center">
-                Predictions for today!
+            <div class="bg-emerald-700 text-black font-semibold px-6 py-3 rounded-xl shadow-lg mb-6 text-center tracking-wide">
+                ✅ BTTS Predictions for Today – @today
             </div>
 
             @if (Model.Matches.Any())
             {
-                <div class="space-y-4">
+                <div class="space-y-6">
                     @foreach (var match in Model.Matches)
                     {
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition">
+                        <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
                             <div class="text-sm text-gray-500 font-semibold uppercase mb-1">
                                 <strong>@match.League – @match.Time</strong>
                             </div>
@@ -49,7 +46,7 @@
         </div>
 
         <!-- Scroll to top arrow -->
-        <button onclick="scrollToTop()" class="fixed bottom-5 right-5 bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-full shadow-lg transition-opacity duration-300 opacity-100" id="scrollTopBtn">
+        <button onclick="scrollToTop()" class="fixed bottom-5 right-5 bg-black hover:bg-gray-800 text-white p-3 rounded-full shadow-lg transition-opacity duration-300 opacity-100" id="scrollTopBtn">
             ⬆️
         </button>
     </section>

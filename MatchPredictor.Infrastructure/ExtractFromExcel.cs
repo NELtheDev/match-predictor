@@ -97,9 +97,6 @@ public class ExtractFromExcel : IExtractFromExcel
                 Console.WriteLine("No worksheets found in the Excel file.");
                 return extractedData;
             }
-
-            // Add extracted data to the database
-            //await _matchDataRepository.AddMatchData(extractedData);
         }
         catch (Exception e)
         {
