@@ -1,34 +1,45 @@
 using MatchPredictor.Domain.Models;
 using MatchPredictor.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MatchPredictor.Web.Pages.Predictions;
 
 public class Combined : PageModel
 {
     private readonly ApplicationDbContext _context;
-    public List<Prediction> Matches { get; set; } = [];
+    private readonly IMemoryCache _cache;
+    public List<Prediction>? Matches { get; set; } = [];
     
-    public Combined(ApplicationDbContext context)
+    public Combined(ApplicationDbContext context, IMemoryCache cache)
     {
+        _cache = cache;
         _context = context;
     }
     
-    public async Task OnGet()
+    public async Task<IActionResult> OnGet()
     {
         var dateString = DateTime.UtcNow.Date.ToString("dd-MM-yyyy");
+        var today = DateTime.UtcNow.Date;
         var random = new Random();
-        Matches = await _context.Predictions
-            .Where(p => p.Date == dateString)
-            .ToListAsync();
+        Matches = await _cache.GetOrCreateAsync($"combined_{today}", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12);
+            return await _context.Predictions
+                .Where(p => p.Date == dateString)
+                .OrderBy(p => p.Date)
+                .ThenBy(p => p.HomeTeam)
+                .ToListAsync();
+        });
             
-        Matches = Matches
-            .DistinctBy(p => new { p.League, p.HomeTeam, p.AwayTeam, p.Date, p.Time })
+        Matches = Matches?
             .OrderBy(_ => random.Next())
             .Take(30)
-            .OrderBy(p => p.Time)
-            .ThenBy(p => p.HomeTeam)
+            .DistinctBy(p => new { p.League, p.HomeTeam, p.AwayTeam, p.Date, p.Time })
             .ToList();
+        
+        return Page();
     }
 }

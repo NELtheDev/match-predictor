@@ -11,6 +11,7 @@ public class ApplicationDbContext : DbContext, IDataProtectionKeyContext
 
     public DbSet<MatchData> MatchDatas => Set<MatchData>();
     public DbSet<Prediction> Predictions => Set<Prediction>();
+    public DbSet<ScrapingLog> ScrapingLogs => Set<ScrapingLog>();
     // Required by IDataProtectionKeyContext
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
