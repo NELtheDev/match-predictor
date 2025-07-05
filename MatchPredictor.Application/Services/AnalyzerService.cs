@@ -1,3 +1,4 @@
+using Hangfire;
 using MatchPredictor.Domain.Interfaces;
 using MatchPredictor.Domain.Models;
 using MatchPredictor.Infrastructure.Persistence;
@@ -27,13 +28,19 @@ public AnalyzerService(
         _excelExtract = excelExtract;
         _logger = logger;
     }
+
+    [AutomaticRetry(Attempts = 2, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
+    [DisableConcurrentExecution(timeoutInSeconds: 3600)] 
     public async Task RunScraperAndAnalyzerAsync()
     {
-        _logger.LogInformation("Starting scraping and analysis process...");
-        var retries = 0;
-
-        while (retries < 2)
+        using (_logger.BeginScope(new Dictionary<string, object>
+               {
+                   ["JobId"] = Guid.NewGuid(),
+                   ["JobType"] = "DailyPrediction"
+               }))
         {
+            _logger.LogInformation("Starting scraping and analysis process...");
+
             try
             {
                 await _webScraperService.ScrapeMatchDataAsync();
@@ -64,27 +71,23 @@ public AnalyzerService(
             }
             catch (Exception ex)
             {
-                retries++;
                 var log = new ScrapingLog
                 {
                     Status = "Failed",
-                    Message = $"Attempt {retries}: {ex.Message}"
+                    Message = $"{ex.Message}"
                 };
-
-                if (retries >= 2)
-                {
-                    log.Message += " - Max retries reached.";
-                    log.Status = "Error";
-                }
                 _logger.LogError(ex, "An error occurred during scraping and analysis.");
                 
                 await _dbContext.ScrapingLogs.AddAsync(log);
                 await _dbContext.SaveChangesAsync();
                 _logger.LogInformation("Scraping log saved with error status.");
-            }  
+                throw; // Re-throw the exception to ensure Hangfire marks the job as failed
+            }
         }
     }
     
+    [AutomaticRetry(Attempts = 1)]
+    [DisableConcurrentExecution(timeoutInSeconds: 1800)]
     public async Task CleanupOldPredictionsAsync()
     {
         var cutoff = DateTime.UtcNow.Date.AddDays(-2);

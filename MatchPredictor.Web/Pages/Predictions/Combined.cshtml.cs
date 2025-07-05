@@ -29,8 +29,6 @@ public class Combined : PageModel
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(12);
             return await _context.Predictions
                 .Where(p => p.Date == dateString)
-                .OrderBy(p => p.Date)
-                .ThenBy(p => p.HomeTeam)
                 .ToListAsync();
         });
             
@@ -38,6 +36,9 @@ public class Combined : PageModel
             .OrderBy(_ => random.Next())
             .Take(30)
             .DistinctBy(p => new { p.League, p.HomeTeam, p.AwayTeam, p.Date, p.Time })
+            .OrderBy(p => p.League)
+            .ThenBy(p => p.Time)
+            .ThenBy(p => p.HomeTeam)
             .ToList();
         
         return Page();

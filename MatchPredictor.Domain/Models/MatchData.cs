@@ -16,4 +16,7 @@ public class MatchData
     public double UnderTwoGoals { get; set; }
     public double UnderThreeGoals { get; set; }
     public double OverFourGoals { get; set; }
+    
+    public string? Score { get; set; }
+    public int BttsLabel { get; set; }
 }

@@ -57,7 +57,8 @@ public class WebScraperService : IWebScraperService
             {
                 try
                 {
-                    var element = d.FindElement(By.XPath("//*[@id='__next']/div/main/div[1]/div[1]/div[1]/button"));
+                    var element = d.FindElement(By.XPath(_configuration["ScrapingValues:PredictionsButtonSelector"] 
+                        ?? throw new InvalidOperationException("Predictions button selector not configured in appsettings.json")));
                     if (element is { Displayed: true, Enabled: true })
                     {
                         downloadButton = element;
@@ -89,7 +90,8 @@ public class WebScraperService : IWebScraperService
     
     private async Task CheckFileIsDownloaded()
     {
-        const string fileName = "predictions.xlsx";
+        var fileName = _configuration["ScrapingValues:PredictionsFileName"]
+                       ?? throw new InvalidOperationException("Predictions file name not configured in appsettings.json");
         string[] possiblePaths =
         [
             Path.Combine(_downloadFolder, fileName),
@@ -97,8 +99,8 @@ public class WebScraperService : IWebScraperService
             Path.Combine(Directory.GetCurrentDirectory(), "Resources", fileName)
         ];
 
-        const int maxWaitTime = 60; // Increase wait time to 60 seconds
-        const int waitInterval = 1000; // Check every second
+        _ = int.TryParse(_configuration["ScrapingValues:ScrapingMaxWaitTime"], out var maxWaitTime);
+        _ = int.TryParse(_configuration["ScrapingValues:ScrapingMaxWaitInterval"], out var waitInterval);
         var totalWaitTime = 0;
 
         while (totalWaitTime < maxWaitTime * 1000)
