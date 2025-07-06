@@ -29,6 +29,7 @@ builder.Services.AddScoped<IMatchDataRepository, MatchDataRepository>();
 builder.Services.AddScoped<IDataAnalyzerService, DataAnalyzerService>();
 builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
+builder.Services.AddScoped<IProbabilityCalculator, ProbabilityCalculator>();
 builder.Services.AddScoped<AnalyzerService>();
 
 // Configure data protection

@@ -29,7 +29,8 @@ public class Over2 : PageModel
             return await _context.Predictions
                 .Where(p => p.Date == dateString && 
                             p.PredictionCategory == "Over2.5Goals")
-                .OrderBy(p => p.Time)
+                .OrderBy(p => p.League)
+                .ThenBy(p => p.Time)
                 .ThenBy(p => p.HomeTeam)
                 .ToListAsync();
         });
