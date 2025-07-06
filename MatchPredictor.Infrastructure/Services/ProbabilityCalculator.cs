@@ -25,7 +25,8 @@ public class ProbabilityCalculator : IProbabilityCalculator
         var over2Weight = match.OverTwoGoals >= PredictionThresholds.Over2 ? 0.6 : 0;
         var over3Weight = match.OverThreeGoals >= PredictionThresholds.Over3 ? 0.4 : 0;
         
-        return over2Weight + over3Weight;
+        return match.OverTwoGoals == 0 || match.OverThreeGoals == 0 ?
+            over2Weight + over3Weight + PredictionThresholds.OverGoalsForControl : over2Weight + over3Weight;
     }
     
     public double CalculateDrawProbability(MatchData match)

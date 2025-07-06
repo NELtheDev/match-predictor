@@ -2,7 +2,7 @@ namespace MatchPredictor.Domain.Models;
 
 public class PredictionThresholds
 {
-    public const double BalancedMatchDiff = 0.20;
+    public const double BalancedMatchDiff = 0.30;
 
     public const double Over2 = 0.60;
     public const double Over3 = 0.50;
@@ -18,4 +18,6 @@ public class PredictionThresholds
     public const double UnderGoalsForControl = 0.4;
     
     public const double BTTSScoreThreshold = 0.6;
+    
+    public const double OverGoalsForControl = 0.4;
 }

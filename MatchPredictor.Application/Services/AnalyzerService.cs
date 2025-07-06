@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace MatchPredictor.Application.Services;
 
-public class AnalyzerService
+public class AnalyzerService  : IAnalyzerService
 {
     private readonly IDataAnalyzerService _dataAnalyzerService;
     private readonly IWebScraperService _webScraperService;
@@ -29,8 +29,6 @@ public AnalyzerService(
         _logger = logger;
     }
 
-    [AutomaticRetry(Attempts = 2, OnAttemptsExceeded = AttemptsExceededAction.Delete)]
-    [DisableConcurrentExecution(timeoutInSeconds: 3600)] 
     public async Task RunScraperAndAnalyzerAsync()
     {
         using (_logger.BeginScope(new Dictionary<string, object>
@@ -86,8 +84,6 @@ public AnalyzerService(
         }
     }
     
-    [AutomaticRetry(Attempts = 1)]
-    [DisableConcurrentExecution(timeoutInSeconds: 1800)]
     public async Task CleanupOldPredictionsAsync()
     {
         var cutoff = DateTime.UtcNow.Date.AddDays(-2);

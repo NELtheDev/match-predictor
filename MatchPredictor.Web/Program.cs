@@ -30,7 +30,7 @@ builder.Services.AddScoped<IDataAnalyzerService, DataAnalyzerService>();
 builder.Services.AddScoped<IWebScraperService, WebScraperService>();
 builder.Services.AddScoped<IExtractFromExcel, ExtractFromExcel>();
 builder.Services.AddScoped<IProbabilityCalculator, ProbabilityCalculator>();
-builder.Services.AddScoped<AnalyzerService>();
+builder.Services.AddScoped<IAnalyzerService, AnalyzerService>();
 
 // Configure data protection
 builder.Services.AddDataProtection()
