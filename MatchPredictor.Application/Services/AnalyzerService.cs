@@ -31,56 +31,49 @@ public AnalyzerService(
 
     public async Task RunScraperAndAnalyzerAsync()
     {
-        using (_logger.BeginScope(new Dictionary<string, object>
-               {
-                   ["JobId"] = Guid.NewGuid(),
-                   ["JobType"] = "DailyPrediction"
-               }))
+        _logger.LogInformation("Starting scraping and analysis process...");
+
+        try
         {
-            _logger.LogInformation("Starting scraping and analysis process...");
+            await _webScraperService.ScrapeMatchDataAsync();
+            _logger.LogInformation("Web scraping completed successfully.");
+            
+            var scraped = _excelExtract.ExtractMatchDatasetFromFile().ToList();
+            _logger.LogInformation($"Extracted {scraped.Count} matches from Excel file.");
 
-            try
+            var today = DateTime.UtcNow.Date.ToString("dd-MM-yyyy");
+            var existing = await _dbContext.Predictions.Where(p => p.Date == today).ToListAsync();
+            _dbContext.Predictions.RemoveRange(existing);
+            await _dbContext.SaveChangesAsync();
+
+            await SavePredictions("BothTeamsScore", _dataAnalyzerService.BothTeamsScore(scraped));
+            await SavePredictions("Draw", _dataAnalyzerService.Draw(scraped));
+            await SavePredictions("Over2.5Goals", _dataAnalyzerService.OverTwoGoals(scraped));
+            await SavePredictions("StraightWin", _dataAnalyzerService.StraightWin(scraped));
+            _logger.LogInformation("Predictions saved successfully.");
+
+            await _dbContext.ScrapingLogs.AddAsync(new ScrapingLog
             {
-                await _webScraperService.ScrapeMatchDataAsync();
-                _logger.LogInformation("Web scraping completed successfully.");
-                
-                var scraped = _excelExtract.ExtractMatchDatasetFromFile().ToList();
-                _logger.LogInformation($"Extracted {scraped.Count} matches from Excel file.");
-
-                var today = DateTime.UtcNow.Date.ToString("dd-MM-yyyy");
-                var existing = await _dbContext.Predictions.Where(p => p.Date == today).ToListAsync();
-                _dbContext.Predictions.RemoveRange(existing);
-                await _dbContext.SaveChangesAsync();
-
-                await SavePredictions("BothTeamsScore", _dataAnalyzerService.BothTeamsScore(scraped));
-                await SavePredictions("Draw", _dataAnalyzerService.Draw(scraped));
-                await SavePredictions("Over2.5Goals", _dataAnalyzerService.OverTwoGoals(scraped));
-                await SavePredictions("StraightWin", _dataAnalyzerService.StraightWin(scraped));
-                _logger.LogInformation("Predictions saved successfully.");
-
-                await _dbContext.ScrapingLogs.AddAsync(new ScrapingLog
-                {
-                    Timestamp = DateTime.UtcNow,
-                    Status = "Success",
-                    Message = "Scraping and prediction analysis completed successfully."
-                });
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation("Scraping log saved successfully.");
-            }
-            catch (Exception ex)
+                Timestamp = DateTime.UtcNow,
+                Status = "Success",
+                Message = "Scraping and prediction analysis completed successfully."
+            });
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation("Scraping log saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            var log = new ScrapingLog
             {
-                var log = new ScrapingLog
-                {
-                    Status = "Failed",
-                    Message = $"{ex.Message}"
-                };
-                _logger.LogError(ex, "An error occurred during scraping and analysis.");
-                
-                await _dbContext.ScrapingLogs.AddAsync(log);
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation("Scraping log saved with error status.");
-                throw; // Re-throw the exception to ensure Hangfire marks the job as failed
-            }
+                Status = "Failed",
+                Message = $"{ex.Message}"
+            };
+            _logger.LogError(ex, "An error occurred during scraping and analysis.");
+            
+            await _dbContext.ScrapingLogs.AddAsync(log);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation("Scraping log saved with error status.");
+            throw; // Re-throw the exception to ensure Hangfire marks the job as failed
         }
     }
     

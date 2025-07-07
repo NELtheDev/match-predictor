@@ -50,7 +50,7 @@ builder.Services.AddSingleton<LogFailureAttribute>();
 builder.Services.AddSingleton<IJobFilterProvider, DependencyInjectionFilterProvider>();
 
 // Configure Hangfire
-builder.Services.AddHangfire((provider, config) =>
+builder.Services.AddHangfire((_, config) =>
 {
     config.UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
