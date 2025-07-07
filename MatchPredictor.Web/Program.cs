@@ -17,6 +17,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddMemoryCache();
 
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables();
+
 // Configure database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
@@ -44,45 +49,28 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .Enrich.FromLogContext()
 );
 
+Console.WriteLine($"🌍 Environment: {builder.Environment.EnvironmentName}");
+Console.WriteLine($"🔌 Connection: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+
+
 // Configure Hangfire
 builder.Services.AddLogging();
 builder.Services.AddSingleton<LogFailureAttribute>();
 builder.Services.AddSingleton<IJobFilterProvider, DependencyInjectionFilterProvider>();
 
-// Configure Hangfire
 builder.Services.AddHangfire((_, config) =>
 {
     config.UseSimpleAssemblyNameTypeSerializer()
-        .UseRecommendedSerializerSettings()
-        .UsePostgreSqlStorage(options => 
-        {
-            options.UseNpgsqlConnection(connectionString);
-        });
-    
+          .UseRecommendedSerializerSettings()
+          .UsePostgreSqlStorage(options => 
+          {
+              options.UseNpgsqlConnection(connectionString);
+          });
+
     config.UseFilter(new AutomaticRetryAttribute { Attempts = 3 });
-
-    // Register recurring jobs HERE
-    RecurringJob.AddOrUpdate<AnalyzerService>(
-        "daily-prediction-job",
-        service => service.RunScraperAndAnalyzerAsync(),
-        "5 0,12 * * *", // Every day at 00:05 and 12:05 UTC
-        new RecurringJobOptions
-        {
-            TimeZone = TimeZoneInfo.Utc,
-            MisfireHandling = MisfireHandlingMode.Relaxed
-        }
-    );
-
-    RecurringJob.AddOrUpdate<AnalyzerService>(
-        "cleanup-old-predictions",
-        service => service.CleanupOldPredictionsAsync(),
-        "0 1 * * *", // At 1:00 AM daily
-        new RecurringJobOptions
-        {
-            TimeZone = TimeZoneInfo.Utc
-        }
-    );
 });
+
+builder.Services.AddHangfireServer();
 
 // Configure Kestrel
 var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
@@ -100,11 +88,31 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-// Configure Hangfire dashboard
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
+// Register recurring Hangfire jobs properly
+using (var scope = app.Services.CreateScope())
 {
-    DashboardTitle = "Match Predictor Jobs"
-});
+    var recurringJobs = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    recurringJobs.AddOrUpdate<AnalyzerService>(
+        "daily-prediction-job",
+        service => service.RunScraperAndAnalyzerAsync(),
+        "5 0,12 * * *", // Every day at 00:05 and 12:05 UTC
+        new RecurringJobOptions
+        {
+            TimeZone = TimeZoneInfo.Utc
+        }
+    );
+
+    recurringJobs.AddOrUpdate<AnalyzerService>(
+        "cleanup-old-predictions",
+        service => service.CleanupOldPredictionsAsync(),
+        "0 1 * * *", // Daily at 1:00 AM
+        new RecurringJobOptions
+        {
+            TimeZone = TimeZoneInfo.Utc
+        }
+    );
+}
 
 // Configure the HTTP request pipeline
 if (!app.Environment.IsDevelopment())
@@ -116,7 +124,15 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+
 app.UseAuthorization();
+
+// Start Hangfire Server and Dashboard
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    DashboardTitle = "Match Predictor Jobs"
+});
+
 app.MapRazorPages();
 
 app.Run();

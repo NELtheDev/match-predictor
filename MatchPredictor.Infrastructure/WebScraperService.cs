@@ -44,7 +44,7 @@ public class WebScraperService : IWebScraperService
 
             DeletePreviousFile();
 
-            var downloadUrl = _configuration["DownloadUrls:ScrapingWebsite"] ?? 
+            var downloadUrl = _configuration["ScrapingValues:ScrapingWebsite"] ?? 
                 throw new InvalidOperationException("Download URL not configured in appsettings.json");
             
             using var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(60));

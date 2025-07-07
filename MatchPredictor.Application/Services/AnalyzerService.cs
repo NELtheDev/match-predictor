@@ -112,7 +112,7 @@ public AnalyzerService(
                 },
                 ConfidenceScore = category switch
                 {
-                    "BothTeamsScore" => null,
+                    "BothTeamsScore" => 0,
                     "Draw" => (decimal?)match.Draw,
                     "Over2.5Goals" => (decimal?)match.OverTwoGoals,
                     "StraightWin" => (decimal?)(match.HomeWin > match.AwayWin ? match.HomeWin : match.AwayWin),
