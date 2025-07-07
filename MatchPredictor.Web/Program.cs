@@ -49,10 +49,6 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .Enrich.FromLogContext()
 );
 
-Console.WriteLine($"🌍 Environment: {builder.Environment.EnvironmentName}");
-Console.WriteLine($"🔌 Connection: {builder.Configuration.GetConnectionString("DefaultConnection")}");
-
-
 // Configure Hangfire
 builder.Services.AddLogging();
 builder.Services.AddSingleton<LogFailureAttribute>();
