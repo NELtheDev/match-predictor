@@ -30,6 +30,7 @@ public class Draw : PageModel
                 .Where(p => p.Date == dateString && 
                             p.PredictionCategory == "Draw")
                 .OrderBy(p => p.Time)
+                .ThenBy(p => p.League)
                 .ThenBy(p => p.HomeTeam)
                 .ToListAsync();
         });

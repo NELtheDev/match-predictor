@@ -29,8 +29,8 @@ public class StraightWin : PageModel
             return await _context.Predictions
                 .Where(p => p.Date == dateString && 
                             p.PredictionCategory == "StraightWin")
-                .OrderBy(p => p.League)
-                .ThenBy(p => p.Time)
+                .OrderBy(p => p.Time)
+                .ThenBy(p => p.League)
                 .ThenBy(p => p.HomeTeam)
                 .ToListAsync();
         });

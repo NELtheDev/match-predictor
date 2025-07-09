@@ -1,4 +1,7 @@
+using System.Globalization;
+using HtmlAgilityPack;
 using MatchPredictor.Domain.Interfaces;
+using MatchPredictor.Domain.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
@@ -30,14 +33,7 @@ public class WebScraperService : IWebScraperService
         {
             new DriverManager().SetUpDriver(new ChromeConfig());
 
-            var chromeOptions = new ChromeOptions();
-            chromeOptions.AddUserProfilePreference("download.default_directory", _downloadFolder);
-            chromeOptions.AddUserProfilePreference("download.prompt_for_download", false);
-            chromeOptions.AddUserProfilePreference("download.directory_upgrade", true);
-            chromeOptions.AddUserProfilePreference("safebrowsing.enabled", true);
-            chromeOptions.AddArgument("--headless");
-            chromeOptions.AddArgument("--no-sandbox");
-            chromeOptions.AddArgument("--disable-dev-shm-usage");
+            var chromeOptions = GetChromeOptions();
 
             var service = ChromeDriverService.CreateDefaultService();
             service.HideCommandPromptWindow = true;
@@ -84,6 +80,97 @@ public class WebScraperService : IWebScraperService
         catch (Exception ex)
         {
             _logger.LogError(ex, "An error occurred while scraping match data.");
+            throw;
+        }
+    }
+
+    public async Task<List<MatchScore>> ScrapeMatchScoresAsync()
+    {
+        try
+        {
+            new DriverManager().SetUpDriver(new ChromeConfig());
+
+            var chromeOptions = GetChromeOptions();
+            
+            var service = ChromeDriverService.CreateDefaultService();
+            service.HideCommandPromptWindow = true;
+
+            var downloadUrl = _configuration["ScrapingValues:ScoresWebsite"] ?? 
+                              throw new InvalidOperationException("Download URL for scores is not configured in appsettings.json");
+            
+            using var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(160));
+            _logger.LogInformation("Checking URL for scores...");
+            await driver.Navigate().GoToUrlAsync(downloadUrl);
+            
+            _logger.LogInformation("Commencing scrapping for scores in inner HTML...");
+            var container = driver.FindElement(By.Id("score-data"));
+            var rawHtml = container.GetAttribute("innerHTML");
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml($"<div>{rawHtml}</div>");
+
+            var currentLeague = "";
+
+            var nodes = doc.DocumentNode.ChildNodes.Nodes().ToList();
+            
+            var matchScores = new List<MatchScore>();
+
+            for (var i = 0; i < nodes.Count; i++)
+            {
+                var node = nodes[i];
+
+                switch (node.Name)
+                {
+                    case "h4":
+                        currentLeague = node.InnerText.Split("Standings")[0].Trim();
+                        break;
+                    case "span":
+                    {
+                        var currentTime = node.InnerText.Trim();
+
+                        // Next node is the teams (text)
+                        var teamsNode = nodes[i + 1];
+                        var currentTeams = teamsNode.InnerText.Trim();
+
+                        // Next node may be <a class="fin"> with score
+                        string? score = null;
+
+                        for (var j = 2; j <= 3; j++)
+                        {
+                            if (i + j < nodes.Count && nodes[i + j].Name == "a" && nodes[i + j].GetAttributeValue("class", "") == "fin")
+                            {
+                                score = nodes[i + j].InnerText.Trim();
+                                break;
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(score) && currentTeams.Contains(" - "))
+                        {
+                            var split = currentTeams.Split(" - ");
+                            var home = split[0].Trim();
+                            var away = split[1].Trim();
+                            
+                            matchScores.Add(new MatchScore
+                            {
+                                League = currentLeague,
+                                HomeTeam = home,
+                                AwayTeam = away,
+                                Score = score,
+                                MatchTime = ParseTime(currentTime),
+                                BTTSLabel = IsBTTS(score)
+                            });
+                        }
+
+                        break;
+                    }
+                }
+            }
+            
+            return matchScores;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "An error occurred while scraping match score.");
             throw;
         }
     }
@@ -138,5 +225,35 @@ public class WebScraperService : IWebScraperService
             File.Delete(otherFile);
             _logger.LogInformation("Deleted unconfirmed file: {OtherFile}", otherFile);
         }
+    }
+
+    private ChromeOptions GetChromeOptions()
+    {
+        var chromeOptions = new ChromeOptions();
+        chromeOptions.AddUserProfilePreference("download.default_directory", _downloadFolder);
+        chromeOptions.AddUserProfilePreference("download.prompt_for_download", false);
+        chromeOptions.AddUserProfilePreference("download.directory_upgrade", true);
+        chromeOptions.AddUserProfilePreference("safebrowsing.enabled", true);
+        chromeOptions.AddArgument("--remote-debugging-address=127.0.0.1");
+        chromeOptions.AddArgument("--headless");
+        chromeOptions.AddArgument("--no-sandbox");
+        chromeOptions.AddArgument("--disable-dev-shm-usage");
+        
+        return chromeOptions;
+    }
+    
+    private bool IsBTTS(string score)
+    {
+        var parts = score.Split(":"); // Split "2:1" into ["2", "1"]
+        return parts.Length == 2 &&
+               int.TryParse(parts[0], out var h) && // Convert "2" to integer h = 2
+               int.TryParse(parts[1], out var a) && // Convert "1" to integer a = 1
+               h > 0 && a > 0; // Check that both teams scored
+    }
+    
+    private DateTime ParseTime(string time)
+    {
+        var today = DateTime.Today;
+        return DateTime.ParseExact($"{today:dd-MM-yyyy} {time}", "dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture);
     }
 }

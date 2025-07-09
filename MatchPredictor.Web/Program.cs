@@ -92,7 +92,7 @@ using (var scope = app.Services.CreateScope())
     recurringJobs.AddOrUpdate<AnalyzerService>(
         "daily-prediction-job",
         service => service.RunScraperAndAnalyzerAsync(),
-        "5 0,12 * * *", // Every day at 00:05 and 12:05 UTC
+        "5 */3 * * *", // Every 3rd hour at 5 mins past
         new RecurringJobOptions
         {
             TimeZone = TimeZoneInfo.Utc

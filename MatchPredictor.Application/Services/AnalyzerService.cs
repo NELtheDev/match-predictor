@@ -35,8 +35,11 @@ public AnalyzerService(
 
         try
         {
-            await _webScraperService.ScrapeMatchDataAsync();
-            _logger.LogInformation("Web scraping completed successfully.");
+            //await _webScraperService.ScrapeMatchDataAsync();
+            //_logger.LogInformation("Web scraping completed successfully.");
+
+            await _webScraperService.ScrapeMatchScoresAsync();
+            _logger.LogInformation("Web scraping for scores completed successfully.");
             
             var scraped = _excelExtract.ExtractMatchDatasetFromFile().ToList();
             _logger.LogInformation($"Extracted {scraped.Count} matches from Excel file.");
