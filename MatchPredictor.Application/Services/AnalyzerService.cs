@@ -35,8 +35,8 @@ public AnalyzerService(
 
         try
         {
-            //await _webScraperService.ScrapeMatchDataAsync();
-            //_logger.LogInformation("Web scraping completed successfully.");
+            await _webScraperService.ScrapeMatchDataAsync();
+            _logger.LogInformation("Web scraping completed successfully.");
 
             await _webScraperService.ScrapeMatchScoresAsync();
             _logger.LogInformation("Web scraping for scores completed successfully.");
