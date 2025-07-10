@@ -15,7 +15,7 @@ public class AnalyzerService  : IAnalyzerService
     private readonly IExtractFromExcel _excelExtract;
     private readonly ILogger<AnalyzerService> _logger;
     
-public AnalyzerService(
+    public AnalyzerService(
         IDataAnalyzerService dataAnalyzerService,
         IWebScraperService webScraperService,
         ApplicationDbContext dbContext,
@@ -29,6 +29,7 @@ public AnalyzerService(
         _logger = logger;
     }
 
+    [AutomaticRetry(OnAttemptsExceeded = AttemptsExceededAction.Delete)]
     public async Task RunScraperAndAnalyzerAsync()
     {
         _logger.LogInformation("Starting scraping and analysis process...");
@@ -80,6 +81,7 @@ public AnalyzerService(
         }
     }
     
+    [AutomaticRetry(OnAttemptsExceeded = AttemptsExceededAction.Delete)]
     public async Task CleanupOldPredictionsAsync()
     {
         var cutoff = DateTime.UtcNow.Date.AddDays(-2);

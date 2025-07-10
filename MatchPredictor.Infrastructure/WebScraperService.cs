@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using HtmlAgilityPack;
 using MatchPredictor.Domain.Interfaces;
 using MatchPredictor.Domain.Models;
@@ -12,7 +13,7 @@ using WebDriverManager.DriverConfigs.Impl;
 
 namespace MatchPredictor.Infrastructure;
 
-public class WebScraperService : IWebScraperService
+public partial class WebScraperService : IWebScraperService
 {
     private readonly string _downloadFolder;
     private readonly IConfiguration _configuration;
@@ -139,7 +140,8 @@ public class WebScraperService : IWebScraperService
                         {
                             if (i + j < nodes.Count && nodes[i + j].Name == "a" && nodes[i + j].GetAttributeValue("class", "") == "fin")
                             {
-                                score = nodes[i + j].InnerText.Trim();
+                                var rawString = nodes[i + j].InnerText.Trim();
+                                score = MyRegex().Match(rawString).Value;
                                 break;
                             }
                         }
@@ -256,4 +258,7 @@ public class WebScraperService : IWebScraperService
         var today = DateTime.Today;
         return DateTime.ParseExact($"{today:dd-MM-yyyy} {time}", "dd-MM-yyyy HH:mm", CultureInfo.InvariantCulture);
     }
+
+    [GeneratedRegex(@"^\d{1,2}:\d{2}")]
+    private static partial Regex MyRegex();
 }
