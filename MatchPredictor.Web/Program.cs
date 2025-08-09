@@ -1,3 +1,4 @@
+using System;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.PostgreSql;
@@ -7,8 +8,13 @@ using MatchPredictor.Infrastructure;
 using MatchPredictor.Infrastructure.Persistence;
 using MatchPredictor.Infrastructure.Repositories;
 using MatchPredictor.Infrastructure.Services;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);

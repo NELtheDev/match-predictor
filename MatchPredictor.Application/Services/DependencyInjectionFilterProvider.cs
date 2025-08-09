@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Hangfire.Common;
 using Microsoft.Extensions.DependencyInjection;
 

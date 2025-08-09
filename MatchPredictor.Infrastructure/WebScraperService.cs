@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using HtmlAgilityPack;
 using MatchPredictor.Domain.Interfaces;
 using MatchPredictor.Domain.Models;
@@ -8,8 +13,6 @@ using Microsoft.Extensions.Logging;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Support.UI;
-using WebDriverManager;
-using WebDriverManager.DriverConfigs.Impl;
 
 namespace MatchPredictor.Infrastructure;
 
@@ -32,49 +35,60 @@ public partial class WebScraperService : IWebScraperService
     {
         try
         {
-            new DriverManager().SetUpDriver(new ChromeConfig());
-
             var chromeOptions = GetChromeOptions();
 
-            var service = ChromeDriverService.CreateDefaultService();
-            service.HideCommandPromptWindow = true;
+            // var service = ChromeDriverService.CreateDefaultService();
+            // service.HideCommandPromptWindow = true;
 
             DeletePreviousFile();
 
             var downloadUrl = _configuration["ScrapingValues:ScrapingWebsite"] ?? 
                 throw new InvalidOperationException("Download URL not configured in appsettings.json");
             
-            using var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(60));
+            using var driver = new ChromeDriver(chromeOptions);
             await driver.Navigate().GoToUrlAsync(downloadUrl);
 
-            var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(60));
-            IWebElement? downloadButton = null;
+            var selector = _configuration["ScrapingValues:PredictionsButtonSelector"]
+                           ?? throw new InvalidOperationException("Predictions button selector not configured in appsettings.json");
 
-            wait.Until(d =>
+            // Ensure page is fully ready and large viewport helps
+            WaitForDocumentReady(driver);
+            DismissCookieBanners(driver);
+
+            // Find element across default content + iframes
+            var (button, frame) = FindInAllFrames(driver, By.XPath(selector), 45);
+            if (frame != null) driver.SwitchTo().Frame(frame);
+            if (button == null)
             {
-                try
-                {
-                    var element = d.FindElement(By.XPath(_configuration["ScrapingValues:PredictionsButtonSelector"] 
-                        ?? throw new InvalidOperationException("Predictions button selector not configured in appsettings.json")));
-                    if (element is { Displayed: true, Enabled: true })
-                    {
-                        downloadButton = element;
-                        return true;
-                    }
-                    return false;
-                }
-                catch (StaleElementReferenceException)
-                {
-                    return false;
-                }
-                catch (NoSuchElementException)
-                {
-                    return false;
-                }
-            });
+                // Dump for debugging and fail fast
+                await File.WriteAllTextAsync("debug.html", driver.PageSource);
+                //((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("debug.png", OpenQA.Selenium.ScreenshotImageFormat.Png);                throw new WebDriverTimeoutException($"Could not find button by XPath: {selector}");
+            }
 
-            downloadButton?.Click();
+            // 1st try: JS click (most reliable in headless)
+            try
+            {
+                JsScrollAndClick(driver, button);
+            }
+            catch
+            {
+                // Fallback: navigate by href if present (works when it’s a link that triggers download)
+                var href = button?.GetAttribute("href");
+                if (!string.IsNullOrWhiteSpace(href))
+                {
+                    driver.SwitchTo().DefaultContent(); // navigate from top
+                    await driver.Navigate().GoToUrlAsync(href);
+                }
+                else
+                {
+                    // As a last resort, remove potential overlays and try again
+                    DismissCookieBanners(driver);
+                    JsScrollAndClick(driver, button);
+                }
+            }
+
             _logger.LogInformation("Download button clicked successfully.");
+
 
             await CheckFileIsDownloaded();
         }
@@ -89,17 +103,15 @@ public partial class WebScraperService : IWebScraperService
     {
         try
         {
-            new DriverManager().SetUpDriver(new ChromeConfig());
-
             var chromeOptions = GetChromeOptions();
             
-            var service = ChromeDriverService.CreateDefaultService();
-            service.HideCommandPromptWindow = true;
+            // var service = ChromeDriverService.CreateDefaultService();
+            // service.HideCommandPromptWindow = true;
 
             var downloadUrl = _configuration["ScrapingValues:ScoresWebsite"] ?? 
                               throw new InvalidOperationException("Download URL for scores is not configured in appsettings.json");
             
-            using var driver = new ChromeDriver(service, chromeOptions, TimeSpan.FromSeconds(160));
+            using var driver = new ChromeDriver(chromeOptions);
             _logger.LogInformation("Checking URL for scores...");
             await driver.Navigate().GoToUrlAsync(downloadUrl);
             
@@ -159,7 +171,7 @@ public partial class WebScraperService : IWebScraperService
                                 AwayTeam = away,
                                 Score = score,
                                 MatchTime = ParseTime(currentTime),
-                                BTTSLabel = IsBTTS(score)
+                                BTTSLabel = IsBtts(score)
                             });
                         }
 
@@ -236,15 +248,15 @@ public partial class WebScraperService : IWebScraperService
         chromeOptions.AddUserProfilePreference("download.prompt_for_download", false);
         chromeOptions.AddUserProfilePreference("download.directory_upgrade", true);
         chromeOptions.AddUserProfilePreference("safebrowsing.enabled", true);
+
+        SetHeadlessViewport(chromeOptions); // <-- use the helper above
         chromeOptions.AddArgument("--remote-debugging-address=127.0.0.1");
-        chromeOptions.AddArgument("--headless");
-        chromeOptions.AddArgument("--no-sandbox");
-        chromeOptions.AddArgument("--disable-dev-shm-usage");
-        
+
         return chromeOptions;
     }
+
     
-    private bool IsBTTS(string score)
+    private static bool IsBtts(string score)
     {
         var parts = score.Split(":"); // Split "2:1" into ["2", "1"]
         return parts.Length == 2 &&
@@ -261,4 +273,90 @@ public partial class WebScraperService : IWebScraperService
 
     [GeneratedRegex(@"^\d{1,2}:\d{2}")]
     private static partial Regex MyRegex();
+    
+    private static void SetHeadlessViewport(ChromeOptions options)
+    {
+        options.AddArgument("--headless=new");
+        options.AddArgument("--window-size=1440,2400");
+        options.AddArgument("--no-sandbox");
+        options.AddArgument("--disable-dev-shm-usage");
+    }
+
+    private static void WaitForDocumentReady(IWebDriver driver, int sec = 30)
+    {
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(sec));
+        wait.Until(d =>
+        {
+            try
+            {
+                var js = (IJavaScriptExecutor)d;
+                return (string)js.ExecuteScript("return document.readyState") == "complete";
+            }
+            catch { return false; }
+        });
+    }
+
+    /// Searches default content and all iframes (1 level) for the element.
+    /// Returns tuple: (element, frameElementOrNull). If frame is not null, caller must switch to it before using the element.
+    private static (IWebElement? el, IWebElement? frame) FindInAllFrames(IWebDriver driver, By by, int sec = 30)
+    {
+        var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(sec));
+
+        // 1) Try in default content
+        driver.SwitchTo().DefaultContent();
+        try
+        {
+            var el = wait.Until(d => d.FindElement(by));
+            return (el, null);
+        }
+        catch { /* ignore */ }
+
+        // 2) Try in iframes
+        var frames = driver.FindElements(By.TagName("iframe"));
+        foreach (var f in frames)
+        {
+            try
+            {
+                driver.SwitchTo().DefaultContent();
+                driver.SwitchTo().Frame(f);
+                var el = wait.Until(d => d.FindElement(by));
+                return (el, f);
+            }
+            catch { /* try next frame */ }
+        }
+
+        driver.SwitchTo().DefaultContent();
+        return (null, null);
+    }
+
+    private static void JsScrollAndClick(IWebDriver driver, IWebElement el)
+    {
+        var js = (IJavaScriptExecutor)driver;
+        js.ExecuteScript("arguments[0].scrollIntoView({block:'center', inline:'center'});", el);
+        js.ExecuteScript("arguments[0].click();", el);
+    }
+
+    private static void DismissCookieBanners(IWebDriver driver)
+    {
+        var js = (IJavaScriptExecutor)driver;
+        // Try common consent buttons
+        var selectors = new[]
+        {
+            "#onetrust-accept-btn-handler",
+            "[data-testid='uc-accept-all-button']",
+            "button[aria-label='Accept all']",
+            ".fc-cta-consent",
+            ".cookie-accept, .cookie-accept-btn"
+        };
+        foreach (var sel in selectors)
+        {
+            var els = driver.FindElements(By.CssSelector(sel));
+            if (els.Count > 0)
+            {
+                try { JsScrollAndClick(driver, els[0]); return; } catch { /* ignore */ }
+            }
+        }
+        // Last resort: hide overlays
+        js.ExecuteScript("document.querySelectorAll('.overlay,.modal,.cookies,.consent').forEach(e=>e.style.display='none');");
+    }
 }
