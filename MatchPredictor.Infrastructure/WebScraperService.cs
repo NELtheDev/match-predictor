@@ -48,43 +48,24 @@ public partial class WebScraperService : IWebScraperService
             using var driver = new ChromeDriver(chromeOptions);
             await driver.Navigate().GoToUrlAsync(downloadUrl);
 
-            var selector = _configuration["ScrapingValues:PredictionsButtonSelector"]
-                           ?? throw new InvalidOperationException("Predictions button selector not configured in appsettings.json");
-
-            // Ensure page is fully ready and large viewport helps
+            // ensure page fully loaded first
             WaitForDocumentReady(driver);
+
+            // Accept/hide cookie banners if any (optional but helpful)
             DismissCookieBanners(driver);
 
-            // Find element across default content + iframes
-            var (button, frame) = FindInAllFrames(driver, By.XPath(selector), 45);
-            if (frame != null) driver.SwitchTo().Frame(frame);
-            if (button == null)
+            // Choose one: if your selector in config is XPath, set isXPath=true; else false for CSS
+            var selector = _configuration["ScrapingValues:PredictionsButtonSelector"]
+                           ?? throw new InvalidOperationException("Predictions button selector not configured");
+            var isXPath = selector.TrimStart().StartsWith("/") || selector.StartsWith("(."); // crude check
+
+            var clicked = ClickByJsAcrossFrames(driver, selector, isXPath, timeoutSec: 30);
+            if (!clicked)
             {
                 // Dump for debugging and fail fast
-                await File.WriteAllTextAsync("debug.html", driver.PageSource);
-                //((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("debug.png", OpenQA.Selenium.ScreenshotImageFormat.Png);                throw new WebDriverTimeoutException($"Could not find button by XPath: {selector}");
-            }
-
-            // 1st try: JS click (most reliable in headless)
-            try
-            {
-                JsScrollAndClick(driver, button);
-            }
-            catch
-            {
-                // Fallback: navigate by href if present (works when it’s a link that triggers download)
-                var href = button?.GetAttribute("href");
-                if (!string.IsNullOrWhiteSpace(href))
-                {
-                    driver.SwitchTo().DefaultContent(); // navigate from top
-                    await driver.Navigate().GoToUrlAsync(href);
-                }
-                else
-                {
-                    // As a last resort, remove potential overlays and try again
-                    DismissCookieBanners(driver);
-                    JsScrollAndClick(driver, button);
-                }
+                File.WriteAllText("debug.html", driver.PageSource);
+                //((ITakesScreenshot)driver).GetScreenshot().SaveAsFile("debug.png", ScreenshotImageFormat.Png);
+                throw new WebDriverTimeoutException($"Could not locate/click element by {(isXPath ? "XPath" : "CSS")}: {selector}");
             }
 
             _logger.LogInformation("Download button clicked successfully.");
@@ -359,4 +340,65 @@ public partial class WebScraperService : IWebScraperService
         // Last resort: hide overlays
         js.ExecuteScript("document.querySelectorAll('.overlay,.modal,.cookies,.consent').forEach(e=>e.style.display='none');");
     }
+    
+    // Finds and clicks an element by CSS/XPath via JS in default doc and all iframes (1-level).
+    // Returns true if it clicked something.
+    private static bool ClickByJsAcrossFrames(IWebDriver driver, string selector, bool isXPath, int timeoutSec = 30)
+    {
+        var js = (IJavaScriptExecutor)driver;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        while (sw.Elapsed < TimeSpan.FromSeconds(timeoutSec))
+        {
+            // 1) Default content
+            driver.SwitchTo().DefaultContent();
+            if (TryInCurrentContext()) return true;
+
+            // 2) One-level iframes
+            var frames = driver.FindElements(By.TagName("iframe"));
+            foreach (var frame in frames)
+            {
+                try
+                {
+                    driver.SwitchTo().DefaultContent();
+                    driver.SwitchTo().Frame(frame);
+                    if (TryInCurrentContext()) return true;
+                }
+                catch { /* try next frame */ }
+            }
+
+            Thread.Sleep(300);
+        }
+
+        driver.SwitchTo().DefaultContent();
+        return false;
+
+        bool TryInCurrentContext()
+        {
+            var script = isXPath
+                ? @"const xp = arguments[0];
+                const r = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                const el = r.singleNodeValue;
+                if(!el) return false;
+                el.scrollIntoView({block:'center', inline:'center'});
+                el.click();
+                return true;"
+                : @"const sel = arguments[0];
+                const el = document.querySelector(sel);
+                if(!el) return false;
+                el.scrollIntoView({block:'center', inline:'center'});
+                el.click();
+                return true;";
+
+            try
+            {
+                return (bool)js.ExecuteScript(script, selector);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
 }
